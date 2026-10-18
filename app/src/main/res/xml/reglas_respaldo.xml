@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+   Reglas de respaldo automático (plantilla). Se pueden descomentar y ajustar si se necesita.
+   Más información: https://developer.android.com/guide/topics/data/autobackup
+   Nota: este archivo se ignora en dispositivos con API menor a 31.
+   Ver https://developer.android.com/about/versions/12/backup-restore
+-->
+<full-backup-content>
+    <!--
+   <include domain="sharedpref" path="."/>
+   <exclude domain="sharedpref" path="device.xml"/>
+-->
+</full-backup-content>
