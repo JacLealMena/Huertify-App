@@ -28,7 +28,14 @@ import com.duoc.huertify_app.ui.navigation.Routes
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 data class ReviewsState(val pending: List<TaskWithNames> = emptyList(), val reviewed: List<TaskWithNames> = emptyList())
 
 class ReviewsViewModel(tasks: TaskRepository) : BaseViewModel() {
@@ -62,10 +69,56 @@ fun ReviewsScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             if (s.pending.isEmpty()) {
                 item { Text("Todas las entregas están revisadas ✔", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            items(s.pending, key = { it.task.id }) { TaskCard(it, showAssignee = true) { onNavigate(Routes.taskDetail(it.task.id)) } }
+            itemsIndexed(s.pending, key = { _, item -> item.task.id }) { index, item ->
+                var visible by remember("pending-${item.task.id}") {
+                    mutableStateOf(false)
+                }
+
+                LaunchedEffect(item.task.id) {
+                    visible = true
+                }
+
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 400,
+                            delayMillis = index * 100
+                        )
+                    )
+                ) {
+                    TaskCard(item, showAssignee = true) {
+                        onNavigate(Routes.taskDetail(item.task.id))
+                    }
+                }
+            }
+
             if (s.reviewed.isNotEmpty()) {
                 item { SectionTitle("Revisadas recientemente") }
-                items(s.reviewed, key = { "r${it.task.id}" }) { TaskCard(it, showAssignee = true) { onNavigate(Routes.taskDetail(it.task.id)) } }
+                itemsIndexed(s.reviewed, key = { _, item -> "r${item.task.id}" }) { index, item ->
+                    var visible by remember("reviewed-${item.task.id}") {
+                        mutableStateOf(false)
+                    }
+
+                    LaunchedEffect(item.task.id) {
+                        visible = true
+                    }
+
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 400,
+                                delayMillis = index * 100
+                            )
+                        )
+                    ) {
+                        TaskCard(item, showAssignee = true) {
+                            onNavigate(Routes.taskDetail(item.task.id))
+                        }
+                    }
+                }
+
             }
         }
     }

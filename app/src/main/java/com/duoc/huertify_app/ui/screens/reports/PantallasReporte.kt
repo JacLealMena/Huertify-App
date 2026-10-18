@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -72,7 +71,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 // ---------- Formulario de reporte ----------
 
 data class ReportFormState(
@@ -228,7 +234,11 @@ fun ReportListScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
     ) { padding ->
         val reports = list ?: return@Scaffold
         if (reports.isEmpty()) {
-            EmptyState(Icons.Filled.ReportProblem, "No hay problemas reportados", Modifier.padding(padding))
+            EmptyState(
+                Icons.Filled.ReportProblem,
+                "No hay problemas reportados",
+                Modifier.padding(padding)
+            )
             return@Scaffold
         }
         LazyColumn(
@@ -236,29 +246,60 @@ fun ReportListScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 88.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(reports, key = { it.report.id }) { item ->
-                val r = item.report
-                ElevatedCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(r.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            StatusChip(r.severity.label, r.severity.color())
-                        }
-                        Text(
-                            "${item.sectorName ?: "General"} · ${item.reporterName} · ${r.createdAt.formatTimestamp()}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            itemsIndexed(reports, key = { _, item -> item.report.id }) { index, item ->
+                var visible by remember(item.report.id) {
+                    mutableStateOf(false)
+                }
+
+                LaunchedEffect(item.report.id) {
+                    visible = true
+                }
+
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 400,
+                            delayMillis = index * 100
                         )
-                        Text(r.description, modifier = Modifier.padding(vertical = 8.dp))
-                        r.photoUri?.let {
-                            AsyncImage(
-                                model = it, contentDescription = "Foto del problema", contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp))
+                    )
+                )
+                {
+                    val r = item.report
+                    ElevatedCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    r.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                StatusChip(r.severity.label, r.severity.color())
+                            }
+                            Text(
+                                "${item.sectorName ?: "General"} · ${item.reporterName} · ${r.createdAt.formatTimestamp()}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (r.resolved) "Resuelto" else "Pendiente", modifier = Modifier.weight(1f))
-                            Switch(checked = r.resolved, onCheckedChange = { vm.toggleResolved(item) })
+                            Text(r.description, modifier = Modifier.padding(vertical = 8.dp))
+                            r.photoUri?.let {
+                                AsyncImage(
+                                    model = it,
+                                    contentDescription = "Foto del problema",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxWidth().height(160.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    if (r.resolved) "Resuelto" else "Pendiente",
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Switch(
+                                    checked = r.resolved,
+                                    onCheckedChange = { vm.toggleResolved(item) })
+                            }
                         }
                     }
                 }

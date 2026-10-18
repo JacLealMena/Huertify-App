@@ -1,5 +1,8 @@
 package com.duoc.huertify_app.ui.screens.garden
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +40,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -104,18 +109,55 @@ fun SectorListScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
                 contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 88.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(list, key = { it.id }) { sector ->
-                    ElevatedCard(onClick = { onNavigate(Routes.sectorDetail(sector.id)) }, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Yard, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(16.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(sector.name, style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    "${sector.location} · ${sector.areaM2.formatArea()}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                itemsIndexed(list, key = { _, sector -> sector.id }) { index, sector ->
+
+                    var visible by remember(sector.id) {
+                        mutableStateOf(false)
+                    }
+
+                    LaunchedEffect(sector.id) {
+                        visible = true
+                    }
+
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 400,
+                                delayMillis = index * 100
+                            )
+                        )
+                    ) {
+                        ElevatedCard(
+                            onClick = {
+                                onNavigate(Routes.sectorDetail(sector.id))
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Filled.Yard,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
+
+                                Spacer(Modifier.width(16.dp))
+
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        sector.name,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+
+                                    Text(
+                                        "${sector.location} · ${sector.areaM2.formatArea()}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }

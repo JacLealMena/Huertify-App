@@ -1,5 +1,8 @@
 package com.duoc.huertify_app.ui.screens.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +20,7 @@ import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
 import com.duoc.huertify_app.ui.common.formatted
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -37,7 +40,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -234,10 +241,58 @@ private fun androidx.compose.foundation.lazy.LazyListScope.studentContent(state:
     if (active.isEmpty()) {
         item { Text("No tienes tareas activas. ¡Buen trabajo! 🌱", color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
-    items(active, key = { it.task.id }) { TaskCard(it, showAssignee = false) { onNavigate(Routes.taskDetail(it.task.id)) } }
+
+    itemsIndexed(active, key = { _, item -> item.task.id }) { index, item ->
+        var visible by remember("active-${item.task.id}") {
+            mutableStateOf(false)
+        }
+
+        LaunchedEffect(item.task.id) {
+            visible = true
+        }
+
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(
+                animationSpec = tween(
+                    durationMillis = 400,
+                    delayMillis = index * 100
+                )
+            )
+        ) {
+            TaskCard(item, showAssignee = false) {
+                onNavigate(Routes.taskDetail(item.task.id))
+            }
+        }
+    }
+
     if (done.isNotEmpty()) {
         item { SectionTitle("Validadas (${done.size})") }
-        items(done, key = { it.task.id }) { TaskCard(it, showAssignee = false) { onNavigate(Routes.taskDetail(it.task.id)) } }
+
+        itemsIndexed(done, key = { _, item -> "done-${item.task.id}" }) { index, item ->
+            var visible by remember("done-${item.task.id}") {
+                mutableStateOf(false)
+            }
+
+            LaunchedEffect(item.task.id) {
+                visible = true
+            }
+
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 400,
+                        delayMillis = index * 100
+                    )
+                )
+            ) {
+                TaskCard(item, showAssignee = false) {
+                    onNavigate(Routes.taskDetail(item.task.id))
+                }
+            }
+        }
+
     }
 }
 

@@ -52,6 +52,14 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 // ---------- Historial ----------
 
@@ -75,7 +83,28 @@ fun HistoryScreen(onBack: () -> Unit) {
             return@Scaffold
         }
         LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp)) {
-            items(list, key = { it.activity.id }) { entry -> HistoryRow(entry) }
+            itemsIndexed(list, key = { _, entry -> entry.activity.id }) { index, entry ->
+                var visible by remember(entry.activity.id) {
+                    mutableStateOf(false)
+                }
+
+                LaunchedEffect(entry.activity.id) {
+                    visible = true
+                }
+
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 400,
+                            delayMillis = index * 100
+                        )
+                    )
+                ) {
+                    HistoryRow(entry)
+                }
+            }
+
         }
     }
 }
@@ -119,7 +148,32 @@ fun NotificationsScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(list) { alert -> AlertCard(alert) { alert.taskId?.let { onNavigate(Routes.taskDetail(it)) } } }
+            itemsIndexed(list) { index, alert ->
+                var visible by remember(index) {
+                    mutableStateOf(false)
+                }
+
+                LaunchedEffect(index) {
+                    visible = true
+                }
+
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 400,
+                            delayMillis = index * 100
+                        )
+                    )
+                ) {
+                    AlertCard(alert) {
+                        alert.taskId?.let {
+                            onNavigate(Routes.taskDetail(it))
+                        }
+                    }
+                }
+            }
+
         }
     }
 }
