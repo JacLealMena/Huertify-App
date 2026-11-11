@@ -6,13 +6,59 @@ Este README es para el equipo: explica **qué está hecho**, **cómo correrlo** 
 
 ---
 
-## 1. Cómo correr el proyecto
+## 1. Cómo levantar el proyecto
 
-1. Abre la carpeta en **Android Studio** (versión reciente, el proyecto usa AGP 9 y `compileSdk 37`).
-2. Espera que Gradle sincronice (la primera vez descarga dependencias, puede tardar).
-3. Presiona ▶️ **Ejecutar** (el botón *Run*) con un emulador o un teléfono conectado.
+### Requisitos
+
+| Qué | Versión |
+|---|---|
+| Android Studio | reciente (compatible con **AGP 9.0**) |
+| JDK | el que trae Android Studio (*JetBrains Runtime*); no hay que instalar otro |
+| Android SDK | **API 37** (`compileSdk`/`targetSdk`), se instala desde el *SDK Manager* |
+| Dispositivo | emulador o teléfono con **Android 7.0 (API 24)** o superior |
+| Internet | para la primera sincronización de Gradle y para el clima |
+
+### Paso a paso (Android Studio)
+
+1. **Clonar** el repo:
+   ```bash
+   git clone <url-del-repo>
+   cd Huertify-App
+   ```
+2. En Android Studio: **File ▸ Open…** y elegir la carpeta `Huertify-App` (la raíz, donde está `settings.gradle.kts`, no la carpeta `app`).
+3. Esperar que **Gradle sincronice** (barra de abajo). La primera vez descarga Gradle 9.6 y todas las dependencias: puede tardar varios minutos.
+   - Si pide instalar el **SDK 37** u otro componente, aceptar el aviso ("Install missing SDK…").
+4. Elegir dónde correrla (menú desplegable de dispositivos, arriba):
+   - **Emulador**: *Device Manager ▸ Create Virtual Device*, elegir un teléfono (ej. Pixel) con una imagen del sistema reciente, y encenderlo.
+   - **Teléfono físico**: activar *Opciones de desarrollador* (tocar 7 veces "Número de compilación" en *Ajustes ▸ Acerca del teléfono*), luego activar **Depuración USB** y conectarlo por cable. Aceptar el aviso de "¿Permitir depuración USB?" en el teléfono.
+5. Verificar que arriba esté seleccionada la configuración **`app`** y presionar ▶️ **Run** (`Shift + F10`).
 
 La primera vez que se abre, la app crea la base de datos y carga **datos de ejemplo** (3 sectores, 3 cultivos y 4 tareas), así que no parte vacía.
+
+### Por consola (sin abrir Android Studio)
+
+Con un emulador encendido o un teléfono conectado:
+
+```bash
+# Windows
+gradlew.bat installDebug
+
+# macOS / Linux
+./gradlew installDebug
+```
+
+Eso compila e instala la app (queda en el teléfono con el nombre **Huertify**; se abre tocando el ícono). Si solo quieren el APK de prueba, sin instalarlo: `gradlew assembleDebug`, y queda en `app/build/outputs/apk/debug/app-debug.apk`.
+
+### Si algo falla
+
+| Problema | Solución |
+|---|---|
+| Error de sincronización de Gradle | **File ▸ Sync Project with Gradle Files**. Si sigue, **File ▸ Invalidate Caches ▸ Invalidate and Restart** |
+| "SDK location not found" | Abrir el proyecto una vez en Android Studio: crea solo el `local.properties` con la ruta del SDK |
+| "Failed to find target android-37" | *Tools ▸ SDK Manager* e instalar **Android API 37** |
+| No aparece el teléfono | Revisar el cable (que sea de datos), la depuración USB y aceptar el aviso en el teléfono |
+| La app abre pero el clima da error | El emulador no tiene internet; el resto de la app funciona igual (ver sección 5) |
+| Quiero partir con los datos de ejemplo de nuevo | Desinstalar la app del emulador/teléfono (o *Ajustes ▸ Apps ▸ Huertify ▸ Borrar datos*) y volver a correrla |
 
 ### Cuentas de prueba
 
@@ -151,26 +197,64 @@ Algunos ejemplos de reglas:
 
 ---
 
-## 7. Pruebas
+## 7. Rotación de pantalla (Ev3)
 
-Hay **23 pruebas automáticas**, todas pasando.
+Al girar el teléfono Android **destruye y vuelve a crear la Activity**. Antes eso hacía que la app volviera al panel y se perdiera dónde estabas, y que se cerraran los diálogos abiertos. Ahora el estado sobrevive al giro:
+
+- **Arranque de la app** (`ui/navigation/NavegacionHuertify.kt`): la carga inicial (datos de ejemplo + sesión) pasó de un `remember` a un `AppViewModel`. Como los ViewModel sobreviven a la rotación, al recrearse la Activity la app ya está "lista", el `NavHost` se dibuja de inmediato y **recupera la pila de navegación** (y los ViewModels de cada pantalla).
+- **Login/Logout**: el efecto que redirige según la sesión también corre al rotar. Ahora solo redirige si la pantalla no corresponde (sin usuario fuera del login, o con usuario todavía en el login); si no, borraba la pila en cada giro.
+- **Diálogos abiertos**: se cambió `remember` por `rememberSaveable` en el selector de fechas (`Componentes.kt`), en "Eliminar sector" / "Eliminar cultivo" (`PantallasSector.kt`) y en "Eliminar tarea" (`PantallaDetalleTarea.kt`).
+  - Para el cultivo se guarda **solo su id** (`Long`), porque `rememberSaveable` no puede guardar un objeto `Crop` en el Bundle; al volver se busca el cultivo en la lista con ese id.
+
+> 📌 Regla del equipo: si una pantalla tiene un `var algo by remember { mutableStateOf(...) }` que el usuario **no debería perder al girar** (un diálogo abierto, una pestaña seleccionada…), usen `rememberSaveable`. Los datos "de verdad" van en el ViewModel.
+
+---
+
+## 8. Generar el APK firmado
+
+El build de `release` se firma con una clave (`.jks`) cuyos datos se leen desde un archivo **`keystore.properties`** en la raíz del proyecto. Ese archivo, la clave y la carpeta `app/release` están en el `.gitignore`: **nunca se suben al repositorio**, así que cada uno debe tenerlos en su PC (pídanselos a quien generó la clave).
+
+`keystore.properties` tiene esta forma:
+
+```properties
+storeFile=../huertify.jks
+storePassword=********
+keyAlias=huertify
+keyPassword=********
+```
+
+> `storeFile` es relativo a la carpeta `app/`.
+
+Luego, en Android Studio: **Build ▸ Generate Signed App Bundle / APK…**, o por consola:
+
+```bash
+./gradlew assembleRelease
+```
+
+El APK queda en `app/build/outputs/apk/release/`. **Si no existe `keystore.properties`, el release se genera igual pero sin firmar** (no se puede instalar), así que el proyecto sigue compilando para todos.
+
+---
+
+## 9. Pruebas
+
+Hay **26 pruebas automáticas**, todas pasando.
 
 ```bash
 # Pruebas rápidas, no necesitan emulador (13)
 ./gradlew testDebugUnitTest
 
-# Pruebas en dispositivo, necesitan un emulador abierto (10)
+# Pruebas en dispositivo, necesitan un emulador abierto (13)
 ./gradlew connectedDebugAndroidTest
 ```
 
 - **Unitarias** (`app/src/test`): validaciones, ciclo de vida de tareas y la capa de Retrofit con una API falsa.
-- **En dispositivo** (`app/src/androidTest`): Room con una base de datos real en memoria (permisos por rol, ciclo completo de tareas, borrado en cascada…) y la pantalla de login.
+- **En dispositivo** (`app/src/androidTest`): Room con una base de datos real en memoria (permisos por rol, ciclo completo de tareas, borrado en cascada…), la pantalla de login y la **rotación** (`PruebaRotacion.kt`): simula el giro con `scenario.recreate()` y comprueba que no se pierde la pila de navegación ni los diálogos de eliminar sector/cultivo.
 
 Además, todos los flujos principales se probaron a mano en el emulador.
 
 ---
 
-## 8. Cosas a tener en cuenta
+## 10. Cosas a tener en cuenta
 
 - **Las contraseñas** se guardan con hash SHA-256. Es suficiente para un MVP, pero no es lo que se usaría en una app real.
 - **El selector de fechas** sale en el idioma del teléfono (en un emulador en inglés aparece en inglés).
