@@ -8,12 +8,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -37,6 +40,10 @@ import com.duoc.huertify_app.ui.screens.tasks.ReviewsScreen
 import com.duoc.huertify_app.ui.screens.tasks.TaskDetailScreen
 import com.duoc.huertify_app.ui.screens.tasks.TaskFormScreen
 import com.duoc.huertify_app.ui.screens.tasks.TaskListScreen
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 object Routes {
     const val ARG_SECTOR_ID = "sectorId"
@@ -70,13 +77,28 @@ private fun longArg(name: String, optional: Boolean = false) = navArgument(name)
     if (optional) defaultValue = 0L
 }
 
+/**
+ * Inicializa la app (datos semilla + sesión) una sola vez.
+ * Al ser un ViewModel sobrevive a la rotación: el flag `ready` ya está en true cuando la
+ * Activity se recrea, así el NavHost se compone en el primer frame y restaura su pila
+ * (y con ella los ViewModels de cada pantalla). Con `remember` se volvía a false y se perdía todo.
+ */
+class AppViewModel(container: AppContainer) : ViewModel() {
+    private val _ready = MutableStateFlow(false)
+    val ready: StateFlow<Boolean> = _ready.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            container.initialize()
+            _ready.value = true
+        }
+    }
+}
+
 @Composable
 fun HuertifyNavHost(container: AppContainer) {
-    var ready by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        container.initialize()
-        ready = true
-    }
+    val appVm: AppViewModel = viewModel(factory = viewModelFactory { initializer { AppViewModel(container) } })
+    val ready by appVm.ready.collectAsStateWithLifecycle()
     if (!ready) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
@@ -87,12 +109,18 @@ fun HuertifyNavHost(container: AppContainer) {
     val start = remember { if (user == null) Routes.LOGIN else Routes.HOME }
 
     // Login/Logout: al cambiar la sesión se reinicia la pila de navegación.
+    // Este efecto también se ejecuta al rotar (la Activity se recrea), así que solo se
+    // redirige si la pantalla actual no corresponde a la sesión: sin usuario fuera del
+    // login, o con usuario todavía en el login. Si no, se borraría la pila al girar.
     LaunchedEffect(user?.id) {
-        val target = if (user == null) Routes.LOGIN else Routes.HOME
         val current = nav.currentDestination?.route ?: return@LaunchedEffect
-        if (current != target) {
-            nav.navigate(target) { popUpTo(0) { inclusive = true } }
+        val onLogin = current == Routes.LOGIN
+        val target = when {
+            user == null && !onLogin -> Routes.LOGIN
+            user != null && onLogin -> Routes.HOME
+            else -> return@LaunchedEffect
         }
+        nav.navigate(target) { popUpTo(0) { inclusive = true } }
     }
 
     val back: () -> Unit = { nav.popBackStack() }

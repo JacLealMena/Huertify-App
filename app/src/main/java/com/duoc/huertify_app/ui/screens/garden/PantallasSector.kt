@@ -39,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -269,8 +270,9 @@ fun SectorDetailScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
     val vm = huertifyViewModel { c, h -> SectorDetailViewModel(c.gardenRepository, c.authRepository, h) }
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var confirmDeleteSector by remember { mutableStateOf(false) }
-    var cropToDelete by remember { mutableStateOf<Crop?>(null) }
+    var confirmDeleteSector by rememberSaveable { mutableStateOf(false) }
+    // Se guarda solo el id (Long) porque rememberSaveable no puede guardar un Crop en el Bundle.
+    var cropToDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
     CollectEvents(vm.events, snackbar, onBack)
 
     Scaffold(
@@ -328,7 +330,7 @@ fun SectorDetailScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
                                 Text("Riego cada ${crop.wateringFrequencyDays} día(s)", style = MaterialTheme.typography.bodySmall)
                             }
                         }
-                        IconButton(onClick = { cropToDelete = crop }) {
+                        IconButton(onClick = { cropToDeleteId = crop.id }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Eliminar cultivo")
                         }
                     }
@@ -346,13 +348,13 @@ fun SectorDetailScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             onDismiss = { confirmDeleteSector = false }
         )
     }
-    cropToDelete?.let { crop ->
+    state.crops.firstOrNull { it.id == cropToDeleteId }?.let { crop ->
         ConfirmDialog(
             title = "Eliminar cultivo",
             text = "¿Eliminar \"${crop.name}\" de este sector?",
             confirmLabel = "Eliminar",
             onConfirm = { vm.deleteCrop(crop) },
-            onDismiss = { cropToDelete = null }
+            onDismiss = { cropToDeleteId = null }
         )
     }
 }

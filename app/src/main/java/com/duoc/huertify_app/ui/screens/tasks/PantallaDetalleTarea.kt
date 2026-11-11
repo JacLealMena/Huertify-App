@@ -43,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -199,7 +200,7 @@ fun TaskDetailScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
     val vm = huertifyViewModel { c, h -> TaskDetailViewModel(c.taskRepository, c.authRepository, c.imageStorage, h) }
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     CollectEvents(vm.events, snackbar, onBack)
 
     val item = state.item
