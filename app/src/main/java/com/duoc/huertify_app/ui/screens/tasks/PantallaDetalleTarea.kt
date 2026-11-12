@@ -1,6 +1,10 @@
 package com.duoc.huertify_app.ui.screens.tasks
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,6 +44,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -264,11 +269,30 @@ fun TaskDetailScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             if (task.studentComment != null || task.evidenceUri != null) {
                 SectionTitle("Entrega del estudiante")
                 task.studentComment?.let { Text("“$it”") }
-                task.evidenceUri?.let {
-                    AsyncImage(
-                        model = it, contentDescription = "Evidencia entregada", contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(12.dp))
-                    )
+                task.evidenceUri?.let {uri ->
+                    var visible by remember(uri) { mutableStateOf(false) }
+                    LaunchedEffect(uri) { visible = true }
+
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(
+                            animationSpec = tween(durationMillis = 3000)
+                        ) + slideInVertically(
+                            animationSpec = tween(durationMillis = 3000),
+                            // Valor positivo = empieza más abajo y sube hasta su posición original
+                            initialOffsetY = { fullHeight -> fullHeight / 4 }
+                        )
+                    ) {
+                        AsyncImage(
+                            model = uri,
+                            contentDescription = "Evidencia entregada",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                    }
                 }
             }
 
