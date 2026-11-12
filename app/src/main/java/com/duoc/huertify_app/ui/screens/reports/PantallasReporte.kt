@@ -1,6 +1,9 @@
 package com.duoc.huertify_app.ui.screens.reports
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -32,8 +36,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -236,29 +243,60 @@ fun ReportListScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 88.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(reports, key = { it.report.id }) { item ->
-                val r = item.report
-                ElevatedCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(r.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            StatusChip(r.severity.label, r.severity.color())
-                        }
-                        Text(
-                            "${item.sectorName ?: "General"} · ${item.reporterName} · ${r.createdAt.formatTimestamp()}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            itemsIndexed(reports, key = { _, item -> item.report.id }) { index, item ->
+                var visible by remember(item.report.id) {
+                    mutableStateOf(false)
+                }
+
+                LaunchedEffect(item.report.id) {
+                    visible = true
+                }
+
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 400,
+                            delayMillis = index * 100
                         )
-                        Text(r.description, modifier = Modifier.padding(vertical = 8.dp))
-                        r.photoUri?.let {
-                            AsyncImage(
-                                model = it, contentDescription = "Foto del problema", contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp))
+                    )
+                )
+                {
+                    val r = item.report
+                    ElevatedCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    r.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                StatusChip(r.severity.label, r.severity.color())
+                            }
+                            Text(
+                                "${item.sectorName ?: "General"} · ${item.reporterName} · ${r.createdAt.formatTimestamp()}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (r.resolved) "Resuelto" else "Pendiente", modifier = Modifier.weight(1f))
-                            Switch(checked = r.resolved, onCheckedChange = { vm.toggleResolved(item) })
+                            Text(r.description, modifier = Modifier.padding(vertical = 8.dp))
+                            r.photoUri?.let {
+                                AsyncImage(
+                                    model = it,
+                                    contentDescription = "Foto del problema",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxWidth().height(160.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    if (r.resolved) "Resuelto" else "Pendiente",
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Switch(
+                                    checked = r.resolved,
+                                    onCheckedChange = { vm.toggleResolved(item) })
+                            }
                         }
                     }
                 }
