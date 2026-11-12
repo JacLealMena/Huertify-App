@@ -1,5 +1,8 @@
 package com.duoc.huertify_app.ui.screens.activity
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
@@ -24,7 +28,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -75,7 +83,27 @@ fun HistoryScreen(onBack: () -> Unit) {
             return@Scaffold
         }
         LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp)) {
-            items(list, key = { it.activity.id }) { entry -> HistoryRow(entry) }
+            itemsIndexed(list, key = { _, entry -> entry.activity.id }) { index, entry ->
+                var visible by remember(entry.activity.id) {
+                    mutableStateOf(false)
+                }
+
+                LaunchedEffect(entry.activity.id) {
+                    visible = true
+                }
+
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 400,
+                            delayMillis = index * 100
+                        )
+                    )
+                ) {
+                    HistoryRow(entry)
+                }
+            }
         }
     }
 }
@@ -119,7 +147,31 @@ fun NotificationsScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(list) { alert -> AlertCard(alert) { alert.taskId?.let { onNavigate(Routes.taskDetail(it)) } } }
+            itemsIndexed(list) { index, alert ->
+                var visible by remember(index) {
+                    mutableStateOf(false)
+                }
+
+                LaunchedEffect(index) {
+                    visible = true
+                }
+
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 400,
+                            delayMillis = index * 100
+                        )
+                    )
+                ) {
+                    AlertCard(alert) {
+                        alert.taskId?.let {
+                            onNavigate(Routes.taskDetail(it))
+                        }
+                    }
+                }
+            }
         }
     }
 }
