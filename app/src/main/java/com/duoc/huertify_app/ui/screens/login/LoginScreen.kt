@@ -11,13 +11,12 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Yard
@@ -43,53 +42,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.duoc.huertify_app.data.SeedData
-import com.duoc.huertify_app.data.repository.AuthRepository
-import com.duoc.huertify_app.domain.validation.Validators
-import com.duoc.huertify_app.ui.common.BaseViewModel
 import com.duoc.huertify_app.ui.common.CollectEvents
 import com.duoc.huertify_app.ui.common.LoadingButton
 import com.duoc.huertify_app.ui.common.ValidatedTextField
 import com.duoc.huertify_app.ui.common.huertifyViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-
-data class LoginUiState(
-    val email: String = "",
-    val password: String = "",
-    val emailError: String? = null,
-    val passwordError: String? = null,
-    val passwordVisible: Boolean = false,
-    val loading: Boolean = false
-)
-
-class LoginViewModel(private val auth: AuthRepository) : BaseViewModel() {
-    private val _state = MutableStateFlow(LoginUiState())
-    val state = _state.asStateFlow()
-
-    fun onEmailChange(value: String) = _state.update { it.copy(email = value, emailError = null) }
-    fun onPasswordChange(value: String) = _state.update { it.copy(password = value, passwordError = null) }
-    fun togglePasswordVisibility() = _state.update { it.copy(passwordVisible = !it.passwordVisible) }
-
-    fun fillDemo(account: SeedData.DemoAccount) =
-        _state.update { LoginUiState(email = account.email, password = account.password) }
-
-    fun login() {
-        val s = _state.value
-        val emailError = Validators.email(s.email)
-        val passwordError = Validators.password(s.password)
-        _state.update { it.copy(emailError = emailError, passwordError = passwordError) }
-        if (emailError != null || passwordError != null) {
-            showError("Revisa los campos marcados")
-            return
-        }
-        _state.update { it.copy(loading = true) }
-        // La navegación ocurre al cambiar la sesión (ver HuertifyNavHost).
-        launchSafe(onFinally = { _state.update { it.copy(loading = false) } }) {
-            auth.login(s.email, s.password)
-        }
-    }
-}
 
 @Composable
 fun LoginScreen() {

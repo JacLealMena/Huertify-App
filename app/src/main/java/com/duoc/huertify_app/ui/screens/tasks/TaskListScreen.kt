@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
@@ -42,13 +41,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import com.duoc.huertify_app.data.local.TaskWithNames
 import com.duoc.huertify_app.data.local.User
-import com.duoc.huertify_app.data.repository.AuthRepository
-import com.duoc.huertify_app.data.repository.TaskRepository
 import com.duoc.huertify_app.domain.model.TaskStatus
-import com.duoc.huertify_app.ui.common.BaseViewModel
 import com.duoc.huertify_app.ui.common.DropdownField
 import com.duoc.huertify_app.ui.common.EmptyState
 import com.duoc.huertify_app.ui.common.HuertifyTopBar
@@ -57,47 +52,6 @@ import com.duoc.huertify_app.ui.common.color
 import com.duoc.huertify_app.ui.common.formatEpochDay
 import com.duoc.huertify_app.ui.common.huertifyViewModel
 import com.duoc.huertify_app.ui.navigation.Routes
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
-
-data class TaskFilter(
-    val status: TaskStatus? = null,
-    val student: User? = null,
-    val onlyOverdue: Boolean = false,
-    val query: String = ""
-)
-
-data class TaskListState(
-    val tasks: List<TaskWithNames>? = null,
-    val students: List<User> = emptyList(),
-    val filter: TaskFilter = TaskFilter()
-)
-
-class TaskListViewModel(tasks: TaskRepository, auth: AuthRepository) : BaseViewModel() {
-    private val filter = MutableStateFlow(TaskFilter())
-
-    val state = combine(tasks.observeAll(), auth.observeStudents(), filter) { all, students, f ->
-        val q = f.query.trim().lowercase()
-        TaskListState(
-            tasks = all.filter { item ->
-                (f.status == null || item.task.status == f.status) &&
-                    (f.student == null || item.task.assigneeId == f.student.id) &&
-                    (!f.onlyOverdue || item.task.isOverdue()) &&
-                    (q.isEmpty() || item.task.title.lowercase().contains(q) || item.task.type.label.lowercase().contains(q))
-            },
-            students = students,
-            filter = f
-        )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TaskListState())
-
-    fun onStatus(status: TaskStatus?) = filter.update { it.copy(status = if (it.status == status) null else status) }
-    fun onStudent(student: User?) = filter.update { it.copy(student = student) }
-    fun onToggleOverdue() = filter.update { it.copy(onlyOverdue = !it.onlyOverdue) }
-    fun onQuery(q: String) = filter.update { it.copy(query = q) }
-}
 
 @Composable
 fun TaskListScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
