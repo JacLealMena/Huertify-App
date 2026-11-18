@@ -62,8 +62,8 @@ class RotationTest {
     private fun openSectorDetail() {
         rule.onNode(hasScrollAction()).performScrollToNode(hasText("Sectores y cultivos"))
         rule.onNodeWithText("Sectores y cultivos").performClick()
-        waitForText("Bancal Norte")
-        rule.onNodeWithText("Bancal Norte").performClick()
+        waitForText("S-01 · Bancal Norte")
+        rule.onNodeWithText("S-01 · Bancal Norte").performClick()
         waitForText("Cultivos (2)")
     }
 

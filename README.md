@@ -129,7 +129,7 @@ app/src/main/java/com/duoc/huertify_app/
 ├── ActividadPrincipal.kt      Única Activity; muestra la navegación (y fija el idioma español)
 │
 ├── domain/            ← Reglas del negocio (Kotlin puro, sin Android)
-│   ├── model/Enumeraciones.kt       Roles, estados y tipos de tarea, gravedad
+│   ├── model/Enumeraciones.kt       Roles, estados de sector, cultivo, tarea y reporte, tipos de tarea y de problema
 │   ├── validation/Validadores.kt    TODAS las validaciones de formularios
 │   ├── MaquinaEstadosTarea.kt       Qué cambios de estado están permitidos
 │   ├── Alertas.kt                   Genera los avisos (atrasadas, por validar…)
@@ -140,6 +140,7 @@ app/src/main/java/com/duoc/huertify_app/
 │   ├── local/AccesoDatos.kt         Room: las consultas (DAOs)
 │   ├── local/BaseDatosHuertify.kt   Room: la base de datos
 │   ├── remote/ApiClima.kt           Retrofit: la API del clima
+│   ├── remote/HuertifyApi.kt        Retrofit: el backend Java
 │   ├── repository/Repositorios.kt   Repositorios: única puerta de entrada a los datos
 │   ├── repository/RepositorioClima.kt
 │   ├── DatosIniciales.kt            Cuentas y datos de ejemplo
@@ -160,7 +161,7 @@ app/src/main/java/com/duoc/huertify_app/
 
 1. **Pantalla** (`TaskDetailScreen`, en `PantallaDetalleTarea.kt`): el estudiante toca "Entregar". La pantalla solo llama a `vm.submit()`.
 2. **ViewModel** (`TaskDetailViewModel`, en el mismo archivo): valida que haya comentario (mínimo 10 caracteres) y foto. Si falta algo, pone el error en el estado y la pantalla lo pinta en rojo debajo del campo.
-3. **Repositorio** (`TaskRepository.submitTask`, en `Repositorios.kt`): revisa que la tarea sea de ese estudiante y que el cambio de estado esté permitido, guarda en Room y anota en el historial.
+3. **Repositorio** (`TaskRepository.submitTask`, en `Repositorios.kt`): revisa que la tarea sea de ese estudiante y que el cambio de estado esté permitido, guarda en el backend Java, actualiza Room y anota en el historial local.
 4. **Room** avisa que los datos cambiaron, y todas las pantallas que muestran esa tarea se actualizan solas (usamos `Flow`).
 
 > 📌 Regla del equipo: **nada de lógica en los Composables**. Si te ves escribiendo un `if` de validación dentro de una pantalla, eso va en el ViewModel o en `Validadores.kt`.
@@ -176,7 +177,24 @@ El curso pide Retrofit, así que lo usamos para algo útil en un huerto: el **cl
 - `data/repository/RepositorioClima.kt`: llama a la API, convierte la respuesta a nuestros modelos y transforma los errores en mensajes entendibles ("Sin conexión a Internet…").
 - La ubicación está en `di/ContenedorDependencias.kt` (ahora Santiago). Si quieren poner la del colegio, se cambia ahí.
 
-Si no hay internet, la tarjeta muestra el error y un botón para reintentar; el resto de la app sigue funcionando normal, porque todo lo demás está guardado en el teléfono.
+Si no hay internet, la tarjeta muestra el error y un botón para reintentar. El backend Java guarda las cuentas, sectores, cultivos y tareas; los reportes, el historial y los mantenimientos siguen locales en el teléfono.
+
+### Backend Java (login, sectores, cultivos y tareas)
+
+El backend está en la carpeta `backend/` y usa **Spring Boot**, **Java 21**, una API REST y **MySQL/MariaDB de XAMPP**. Para probarlo:
+
+1. En XAMPP, inicia **MySQL** y abre phpMyAdmin (`http://localhost/phpmyadmin`).
+2. Crea una base llamada `huertify` con collation `utf8mb4_unicode_ci`.
+3. Instala Java 21 y Maven. Desde la raíz del proyecto, abre una terminal y ejecuta:
+   ```powershell
+   cd backend
+   mvn spring-boot:run
+   ```
+4. Deja esa terminal abierta y ejecuta la app en un **emulador Android**. La app se conecta a `http://10.0.2.2:8080/` (la dirección del emulador para acceder al computador).
+
+La primera ejecución crea cuentas y datos de prueba; las credenciales están en `backend/README.md`. Si XAMPP usa otras credenciales o puerto, configura `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` antes de iniciar el backend. Si usas un teléfono físico, cambia `HUERTIFY_BASE_URL` en `app/build.gradle.kts` por la IP local del computador. Si no se puede conectar al backend, la app muestra un mensaje y permite reintentar cuando el servidor esté encendido.
+
+> Este backend es un prototipo académico para desarrollo local: sus endpoints no tienen tokens de sesión ni autorización de producción.
 
 ---
 

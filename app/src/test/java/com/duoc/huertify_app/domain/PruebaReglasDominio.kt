@@ -88,3 +88,59 @@ class TaskStateMachineTest {
         )
     }
 }
+
+class NewRulesTest {
+    private val today = java.time.LocalDate.of(2026, 11, 11)
+
+    private fun crop(status: com.duoc.huertify_app.domain.model.CropStatus = com.duoc.huertify_app.domain.model.CropStatus.EN_CRECIMIENTO) =
+        com.duoc.huertify_app.data.local.Crop(
+            id = 1, sectorId = 10, name = "Lechuga", variety = "", plantingDate = today.minusDays(20).toEpochDay(),
+            transplantDate = today.minusDays(10).toEpochDay(), harvestDate = today.plusDays(5).toEpochDay(),
+            wateringFrequencyDays = 2, status = status, notes = ""
+        )
+
+    @Test
+    fun sectorCodeFormat() {
+        assertNull(Validators.sectorCode("S-01"))
+        assertNotNull(Validators.sectorCode(""))
+        assertNotNull(Validators.sectorCode("S 01"))
+        assertNotNull(Validators.sectorCode("ABCDEFGHIJK"))
+    }
+
+    @Test
+    fun transplantIsOptionalButMustBeBetweenPlantingAndHarvest() {
+        val planting = today
+        val harvest = today.plusDays(60)
+        assertNull(Validators.transplantDate(null, planting, harvest))
+        assertNull(Validators.transplantDate(today.plusDays(10), planting, harvest))
+        assertNotNull(Validators.transplantDate(today.minusDays(1), planting, harvest))
+        assertNotNull(Validators.transplantDate(today.plusDays(61), planting, harvest))
+    }
+
+    @Test
+    fun nextWateringUsesTransplantWhenNeverWatered() {
+        // Sin riegos registrados se cuenta desde el trasplante: hace 10 días + 2 = hace 8 días.
+        assertEquals(today.minusDays(8), WateringSchedule.nextWatering(crop(), lastWatering = null))
+    }
+
+    @Test
+    fun nextWateringUsesLastWatering() {
+        assertEquals(today.plusDays(1), WateringSchedule.nextWatering(crop(), lastWatering = today.minusDays(1)))
+    }
+
+    @Test
+    fun plannedOrHarvestedCropsDoNotNeedWatering() {
+        assertFalse(WateringSchedule.needsWatering(crop(com.duoc.huertify_app.domain.model.CropStatus.PLANIFICADO)))
+        assertFalse(WateringSchedule.needsWatering(crop(com.duoc.huertify_app.domain.model.CropStatus.COSECHADO)))
+        assertTrue(WateringSchedule.needsWatering(crop()))
+    }
+
+    @Test
+    fun remindersIncludeOverdueWateringAndUpcomingHarvest() {
+        val cropWithSector = com.duoc.huertify_app.data.local.CropWithSector(crop(), "Bancal Norte")
+        val alerts = AlertBuilder.build(Role.ADMIN, emptyList(), emptyList(), listOf(cropWithSector), emptyList(), emptyList(), today)
+        assertTrue(alerts.any { it.title == "Riego atrasado" })
+        assertTrue(alerts.any { it.title == "Próxima cosecha" })
+        assertTrue(alerts.all { it.category == AlertCategory.RECORDATORIO })
+    }
+}

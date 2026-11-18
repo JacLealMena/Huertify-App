@@ -1,39 +1,36 @@
 package com.duoc.huertify_app.ui.screens.home
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Assignment
-import androidx.compose.material.icons.automirrored.filled.FactCheck
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.CircularProgressIndicator
+import com.duoc.huertify_app.ui.common.formatted
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Yard
-import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,11 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,19 +46,106 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import com.duoc.huertify_app.data.local.TaskWithNames
+import com.duoc.huertify_app.data.local.User
+import com.duoc.huertify_app.data.repository.AuthRepository
+import com.duoc.huertify_app.data.repository.GardenRepository
+import com.duoc.huertify_app.data.repository.MaintenanceRepository
+import com.duoc.huertify_app.data.repository.ReportRepository
+import com.duoc.huertify_app.data.repository.TaskRepository
+import com.duoc.huertify_app.data.repository.WeatherRepository
+import com.duoc.huertify_app.domain.WeatherSummary
+import com.duoc.huertify_app.domain.AlertBuilder
 import com.duoc.huertify_app.domain.model.Role
 import com.duoc.huertify_app.domain.model.TaskStatus
+import com.duoc.huertify_app.ui.common.BaseViewModel
 import com.duoc.huertify_app.ui.common.HuertifyTopBar
 import com.duoc.huertify_app.ui.common.SectionTitle
-import com.duoc.huertify_app.ui.common.formatted
 import com.duoc.huertify_app.ui.common.huertifyViewModel
 import com.duoc.huertify_app.ui.navigation.Routes
 import com.duoc.huertify_app.ui.screens.tasks.TaskCard
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
+
+sealed interface WeatherUiState {
+    data object Loading : WeatherUiState
+    data class Success(val summary: WeatherSummary) : WeatherUiState
+    data class Error(val message: String) : WeatherUiState
+}
+
+data class HomeUiState(
+    val user: User? = null,
+    val sectorCount: Int = 0,
+    val cropCount: Int = 0,
+    val tasks: List<TaskWithNames> = emptyList(),
+    val pendingValidation: Int = 0,
+    val overdue: Int = 0,
+    val openReports: Int = 0,
+    val alertCount: Int = 0
+) {
+    fun countBy(status: TaskStatus) = tasks.count { it.task.status == status }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class HomeViewModel(
+    private val auth: AuthRepository,
+    garden: GardenRepository,
+    tasks: TaskRepository,
+    reports: ReportRepository,
+    maintenances: MaintenanceRepository,
+    private val weatherRepository: WeatherRepository
+) : BaseViewModel() {
+
+    private val _weather = MutableStateFlow<WeatherUiState>(WeatherUiState.Loading)
+    val weather: StateFlow<WeatherUiState> = _weather.asStateFlow()
+
+    init {
+        loadWeather()
+    }
+
+    fun loadWeather() {
+        _weather.value = WeatherUiState.Loading
+        viewModelScope.launch {
+            _weather.value = weatherRepository.getForecast().fold(
+                onSuccess = { WeatherUiState.Success(it) },
+                onFailure = { WeatherUiState.Error(it.message ?: "No se pudo obtener el clima") }
+            )
+        }
+    }
+
+    val state: StateFlow<HomeUiState> = auth.currentUser.filterNotNull().flatMapLatest { user ->
+        val taskFlow = if (user.role == Role.ADMIN) tasks.observeAll() else tasks.observeForUser(user.id)
+        val counts = combine(garden.observeSectors(), garden.observeAllCrops(), maintenances.observeAll()) { s, c, m -> Triple(s, c, m) }
+        combine(taskFlow, tasks.observeAll(), counts, reports.observeAll()) { taskList, allTasks, (sectors, crops, maint), reportList ->
+            HomeUiState(
+                user = user,
+                sectorCount = sectors.size,
+                cropCount = crops.size,
+                tasks = taskList,
+                pendingValidation = taskList.count { it.task.status == TaskStatus.PENDIENTE_VALIDACION },
+                overdue = taskList.count { it.task.isOverdue() },
+                openReports = reportList.count { it.report.status.isOpen },
+                alertCount = AlertBuilder.build(user.role, taskList, reportList, crops, allTasks.map { it.task }, maint).size
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+
+    fun logout() = launchSafe { auth.logout() }
+}
 
 @Composable
 fun HomeScreen(onNavigate: (String) -> Unit) {
     val vm = huertifyViewModel { c, _ ->
-        HomeViewModel(c.authRepository, c.gardenRepository, c.taskRepository, c.reportRepository, c.weatherRepository)
+        HomeViewModel(c.authRepository, c.gardenRepository, c.taskRepository, c.reportRepository, c.maintenanceRepository, c.weatherRepository)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
@@ -89,7 +169,7 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
@@ -106,7 +186,7 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
     }
 }
 
-private fun LazyListScope.adminContent(state: HomeUiState, onNavigate: (String) -> Unit) {
+private fun androidx.compose.foundation.lazy.LazyListScope.adminContent(state: HomeUiState, onNavigate: (String) -> Unit) {
     item {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard("Sectores", "${state.sectorCount}", Modifier.weight(1f))
@@ -129,11 +209,21 @@ private fun LazyListScope.adminContent(state: HomeUiState, onNavigate: (String) 
             onNavigate(Routes.REVIEWS)
         }
     }
-    item { MenuCard(Icons.Filled.ReportProblem, "Problemas del huerto", "Reportes de plagas, daños o riego") { onNavigate(Routes.REPORTS) } }
-    item { MenuCard(Icons.Filled.History, "Historial de actividades", "Registro de todo lo realizado") { onNavigate(Routes.HISTORY) } }
+    item {
+        MenuCard(Icons.Filled.ReportProblem, "Problemas del huerto", "Seguimiento de reportes (${state.openReports} por revisar)") {
+            onNavigate(Routes.REPORTS)
+        }
+    }
+    item { MenuCard(Icons.Filled.Build, "Mantenimientos", "Programar mantenimientos de los sectores") { onNavigate(Routes.MAINTENANCE) } }
+    item {
+        MenuCard(Icons.Filled.Notifications, "Avisos y recordatorios", "Riegos, cosechas, mantenimientos y atrasos (${state.alertCount})") {
+            onNavigate(Routes.NOTIFICATIONS)
+        }
+    }
+    item { MenuCard(Icons.Filled.History, "Historial de actividades", "Registro cronológico con fotos y validaciones") { onNavigate(Routes.HISTORY) } }
 }
 
-private fun LazyListScope.studentContent(state: HomeUiState, onNavigate: (String) -> Unit) {
+private fun androidx.compose.foundation.lazy.LazyListScope.studentContent(state: HomeUiState, onNavigate: (String) -> Unit) {
     item {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard("Pendientes", "${state.countBy(TaskStatus.PENDIENTE)}", Modifier.weight(1f))
@@ -147,62 +237,21 @@ private fun LazyListScope.studentContent(state: HomeUiState, onNavigate: (String
             MenuCard(Icons.Filled.History, "Mi historial", null, Modifier.weight(1f)) { onNavigate(Routes.HISTORY) }
         }
     }
+    item {
+        MenuCard(Icons.AutoMirrored.Filled.Assignment, "Mis reportes", "Estado de tus reportes y comentarios del docente") {
+            onNavigate(Routes.REPORTS)
+        }
+    }
     val active = state.tasks.filter { it.task.status != TaskStatus.VALIDADA }
     val done = state.tasks.filter { it.task.status == TaskStatus.VALIDADA }
     item { SectionTitle("Tareas asignadas (${active.size})") }
     if (active.isEmpty()) {
         item { Text("No tienes tareas activas. ¡Buen trabajo! 🌱", color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
-    itemsIndexed(active, key = { _, item -> item.task.id }) { index, item ->
-        var visible by remember("active-${item.task.id}") {
-            mutableStateOf(false)
-        }
-
-        LaunchedEffect(item.task.id) {
-            visible = true
-        }
-
-        AnimatedVisibility(
-            visible = visible,
-            enter = fadeIn(
-                animationSpec = tween(
-                    durationMillis = 400,
-                    delayMillis = index * 100
-                )
-            )
-        ) {
-            TaskCard(item, showAssignee = false) {
-                onNavigate(Routes.taskDetail(item.task.id))
-            }
-        }
-    }
-
+    items(active, key = { it.task.id }) { TaskCard(it, showAssignee = false) { onNavigate(Routes.taskDetail(it.task.id)) } }
     if (done.isNotEmpty()) {
         item { SectionTitle("Validadas (${done.size})") }
-
-        itemsIndexed(done, key = { _, item -> "done-${item.task.id}" }) { index, item ->
-            var visible by remember("done-${item.task.id}") {
-                mutableStateOf(false)
-            }
-
-            LaunchedEffect(item.task.id) {
-                visible = true
-            }
-
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(
-                    animationSpec = tween(
-                        durationMillis = 400,
-                        delayMillis = index * 100
-                    )
-                )
-            ) {
-                TaskCard(item, showAssignee = false) {
-                    onNavigate(Routes.taskDetail(item.task.id))
-                }
-            }
-        }
+        items(done, key = { it.task.id }) { TaskCard(it, showAssignee = false) { onNavigate(Routes.taskDetail(it.task.id)) } }
     }
 }
 

@@ -71,6 +71,23 @@ object Validators {
         else -> null
     }
 
+    private val SECTOR_CODE_REGEX = Regex("^[A-Za-z0-9-]{2,10}$")
+
+    /** Código del sector: 2 a 10 letras, números o guiones (ej: S-01). */
+    fun sectorCode(value: String): String? = when {
+        value.isBlank() -> "El código es obligatorio"
+        !SECTOR_CODE_REGEX.matches(value.trim()) -> "Usa de 2 a 10 letras, números o guiones (ej: S-01)"
+        else -> null
+    }
+
+    /** Fecha de trasplante opcional: si se indica, debe quedar entre la siembra y la cosecha. */
+    fun transplantDate(transplant: LocalDate?, planting: LocalDate?, harvest: LocalDate?): String? = when {
+        transplant == null -> null
+        planting != null && transplant.isBefore(planting) -> "El trasplante no puede ser anterior a la siembra"
+        harvest != null && transplant.isAfter(harvest) -> "El trasplante no puede ser posterior a la cosecha"
+        else -> null
+    }
+
     fun scheduledDate(date: LocalDate?, today: LocalDate, allowPast: Boolean): String? = when {
         date == null -> "La fecha programada es obligatoria"
         !allowPast && date.isBefore(today) -> "La fecha programada no puede estar en el pasado"

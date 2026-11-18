@@ -51,7 +51,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.duoc.huertify_app.domain.model.Severity
+import com.duoc.huertify_app.domain.model.CropStatus
+import com.duoc.huertify_app.domain.model.ReportStatus
+import com.duoc.huertify_app.domain.model.SectorStatus
 import com.duoc.huertify_app.domain.model.TaskStatus
 import java.time.Instant
 import java.time.LocalDate
@@ -233,10 +235,28 @@ fun TaskStatus.color(): Color = when (this) {
     TaskStatus.RECHAZADA -> Color(0xFFC62828)
 }
 
-fun Severity.color(): Color = when (this) {
-    Severity.BAJA -> Color(0xFF2E7D32)
-    Severity.MEDIA -> Color(0xFFF9A825)
-    Severity.ALTA -> Color(0xFFC62828)
+fun SectorStatus.color(): Color = when (this) {
+    SectorStatus.DISPONIBLE -> Color(0xFF2E7D32)
+    SectorStatus.EN_USO -> Color(0xFF1E88E5)
+    SectorStatus.EN_MANTENIMIENTO -> Color(0xFFEF6C00)
+    SectorStatus.FUERA_DE_USO -> Color(0xFF757575)
+}
+
+fun CropStatus.color(): Color = when (this) {
+    CropStatus.PLANIFICADO -> Color(0xFF757575)
+    CropStatus.SEMBRADO -> Color(0xFF6D4C41)
+    CropStatus.EN_CRECIMIENTO -> Color(0xFF2E7D32)
+    CropStatus.LISTO_COSECHA -> Color(0xFFF9A825)
+    CropStatus.COSECHADO -> Color(0xFF1E88E5)
+    CropStatus.CON_PROBLEMAS -> Color(0xFFC62828)
+    CropStatus.FINALIZADO -> Color(0xFF455A64)
+}
+
+fun ReportStatus.color(): Color = when (this) {
+    ReportStatus.INFORMADO -> Color(0xFFC62828)
+    ReportStatus.EN_REVISION -> Color(0xFFF9A825)
+    ReportStatus.ATENDIDO -> Color(0xFF1E88E5)
+    ReportStatus.CERRADO -> Color(0xFF2E7D32)
 }
 
 @Composable

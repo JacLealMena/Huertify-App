@@ -46,8 +46,9 @@ class RepositoryIntegrationTest {
             .build()
         SeedData.seedIfEmpty(db)
         val activity = ActivityRepository(db.activityDao())
-        garden = GardenRepository(db.sectorDao(), db.cropDao(), activity)
-        tasks = TaskRepository(db.taskDao(), activity)
+        val api = FakeHuertifyApi()
+        garden = GardenRepository(db.sectorDao(), db.cropDao(), activity, api)
+        tasks = TaskRepository(db.taskDao(), db.userDao(), activity, api)
         admin = db.userDao().findByEmail("docente@huertify.cl")!!
         ana = db.userDao().findByEmail("ana@huertify.cl")!!
         benjamin = db.userDao().findByEmail("benjamin@huertify.cl")!!
@@ -132,9 +133,9 @@ class RepositoryIntegrationTest {
 
     @Test
     fun sectorNamesAreUniqueAndDeletingSectorCascadesCrops() = runBlocking {
-        garden.saveSector(Sector(name = "Aromáticas", location = "Patio", areaM2 = 3.0, description = ""), admin)
+        garden.saveSector(Sector(code = "S-10", name = "Aromáticas", location = "Patio", areaM2 = 3.0, description = ""), admin)
         assertRejected {
-            garden.saveSector(Sector(name = "aromáticas", location = "Otro", areaM2 = 1.0, description = ""), admin)
+            garden.saveSector(Sector(code = "S-11", name = "aromáticas", location = "Otro", areaM2 = 1.0, description = ""), admin)
         }
         val sector = garden.observeSectors().first().first { it.name == "Aromáticas" }
         garden.saveCrop(
@@ -155,5 +156,41 @@ class RepositoryIntegrationTest {
         val history = db.activityDao().observeForUser(ana.id).first().map { it.activity.message }
         assertTrue(history.any { it.startsWith("Inició la tarea") })
         assertTrue(history.any { it.startsWith("Creó y asignó") })
+    }
+
+    @Test
+    fun submittedTaskRecordsCompletionAndCreator() = runBlocking {
+        val id = newTaskFor(ana)
+        assertEquals(admin.id, tasks.findTask(id)!!.creatorId)
+        tasks.startTask(id, ana)
+        tasks.submitTask(id, null, null, ana)                                   // foto y comentario opcionales
+        val submitted = tasks.findTask(id)!!
+        assertEquals(TaskStatus.PENDIENTE_VALIDACION, submitted.status)
+        assertTrue(submitted.completedAt != null)
+    }
+
+    @Test
+    fun rejectionCanRescheduleTheTask() = runBlocking {
+        val id = newTaskFor(ana)
+        tasks.startTask(id, ana)
+        tasks.submitTask(id, "Listo", null, ana)
+        val newDate = LocalDate.now().plusDays(4)
+        tasks.rejectTask(id, "Falta regar la última hilera", admin, newDate)
+        val rejected = tasks.findTask(id)!!
+        assertEquals(newDate.toEpochDay(), rejected.scheduledDate)
+        assertEquals(admin.id, rejected.reviewerId)
+    }
+
+    @Test
+    fun groupAssignmentCreatesOneTaskPerMember() = runBlocking {
+        val count = tasks.assignToGroup(
+            Task(title = "Riego grupal", description = "Regar todo el bancal", instructions = "", type = TaskType.RIEGO,
+                sectorId = null, assigneeId = 0, scheduledDate = LocalDate.now().toEpochDay()),
+            SeedData.WORKSHOP_5,
+            admin
+        )
+        assertEquals(2, count)
+        assertTrue(tasks.observeForUser(ana.id).first().any { it.task.groupName == SeedData.WORKSHOP_5 && it.task.title == "Riego grupal" })
+        assertTrue(tasks.observeForUser(benjamin.id).first().any { it.task.title == "Riego grupal" })
     }
 }

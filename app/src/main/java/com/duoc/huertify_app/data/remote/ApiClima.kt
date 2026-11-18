@@ -67,4 +67,13 @@ object RetrofitClient {
             .build()
             .create(WeatherApi::class.java)
     }
+
+    val huertifyApi: HuertifyApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.HUERTIFY_BASE_URL)
+            .client(httpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(HuertifyApi::class.java)
+    }
 }

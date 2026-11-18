@@ -1,16 +1,24 @@
 package com.duoc.huertify_app.ui.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -29,6 +37,7 @@ import com.duoc.huertify_app.ui.common.EmptyState
 import com.duoc.huertify_app.ui.screens.activity.HistoryScreen
 import com.duoc.huertify_app.ui.screens.activity.NotificationsScreen
 import com.duoc.huertify_app.ui.screens.garden.CropFormScreen
+import com.duoc.huertify_app.ui.screens.garden.MaintenanceScreen
 import com.duoc.huertify_app.ui.screens.garden.SectorDetailScreen
 import com.duoc.huertify_app.ui.screens.garden.SectorFormScreen
 import com.duoc.huertify_app.ui.screens.garden.SectorListScreen
@@ -44,6 +53,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
+import java.io.IOException
 
 object Routes {
     const val ARG_SECTOR_ID = "sectorId"
@@ -64,6 +75,7 @@ object Routes {
     const val REPORT_FORM = "report_form"
     const val HISTORY = "history"
     const val NOTIFICATIONS = "notifications"
+    const val MAINTENANCE = "maintenance"
 
     fun sectorDetail(id: Long) = "sector/$id"
     fun sectorForm(id: Long = 0) = "sector_form?$ARG_SECTOR_ID=$id"
@@ -86,11 +98,27 @@ private fun longArg(name: String, optional: Boolean = false) = navArgument(name)
 class AppViewModel(container: AppContainer) : ViewModel() {
     private val _ready = MutableStateFlow(false)
     val ready: StateFlow<Boolean> = _ready.asStateFlow()
+    private val _backendUnavailable = MutableStateFlow(false)
+    val backendUnavailable: StateFlow<Boolean> = _backendUnavailable.asStateFlow()
 
     init {
+        initialize(container)
+    }
+
+    fun retry(container: AppContainer) = initialize(container)
+
+    private fun initialize(container: AppContainer) {
+        _ready.value = false
+        _backendUnavailable.value = false
         viewModelScope.launch {
-            container.initialize()
-            _ready.value = true
+            try {
+                container.initialize()
+                _ready.value = true
+            } catch (_: IOException) {
+                _backendUnavailable.value = true
+            } catch (_: HttpException) {
+                _backendUnavailable.value = true
+            }
         }
     }
 }
@@ -99,6 +127,24 @@ class AppViewModel(container: AppContainer) : ViewModel() {
 fun HuertifyNavHost(container: AppContainer) {
     val appVm: AppViewModel = viewModel(factory = viewModelFactory { initializer { AppViewModel(container) } })
     val ready by appVm.ready.collectAsStateWithLifecycle()
+    val backendUnavailable by appVm.backendUnavailable.collectAsStateWithLifecycle()
+    if (backendUnavailable) {
+        Column(
+            Modifier.fillMaxSize().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                "No se pudo conectar con el backend. Inícialo y vuelve a intentar.",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center
+            )
+            Button(onClick = { appVm.retry(container) }, modifier = Modifier.padding(top = 16.dp)) {
+                Text("Reintentar")
+            }
+        }
+        return
+    }
     if (!ready) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
@@ -146,11 +192,12 @@ fun HuertifyNavHost(container: AppContainer) {
             AdminOnly(user) { TaskFormScreen(back) }
         }
         composable(Routes.REVIEWS) { AdminOnly(user) { ReviewsScreen(back, go) } }
-        composable(Routes.REPORTS) { AdminOnly(user) { ReportListScreen(back, go) } }
+        composable(Routes.MAINTENANCE) { AdminOnly(user) { MaintenanceScreen(back) } }
 
         // Rutas compartidas (el contenido se filtra según el rol)
         composable(Routes.TASK_DETAIL, listOf(longArg(Routes.ARG_TASK_ID))) { TaskDetailScreen(back, go) }
         composable(Routes.REPORT_FORM) { ReportFormScreen(back) }
+        composable(Routes.REPORTS) { ReportListScreen(back, go) }
         composable(Routes.HISTORY) { HistoryScreen(back) }
         composable(Routes.NOTIFICATIONS) { NotificationsScreen(back, go) }
     }
