@@ -7,10 +7,12 @@ typealias SectorFormState = SectorFormUiState
  */
 data class SectorFormUiState(
     val id: Long = 0,
+    val code: String = "",
     val name: String = "",
     val location: String = "",
     val area: String = "",
     val description: String = "",
+    val codeError: String? = null,
     val nameError: String? = null,
     val locationError: String? = null,
     val areaError: String? = null,

@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.duoc.huertify_app.data.local.ReportWithNames
 import com.duoc.huertify_app.data.repository.AuthRepository
 import com.duoc.huertify_app.data.repository.ReportRepository
+import com.duoc.huertify_app.domain.model.ReportStatus
 import com.duoc.huertify_app.ui.common.BaseViewModel
 import com.duoc.huertify_app.ui.common.UiEvent
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,11 +25,8 @@ class ReportListViewModel(
             initialValue = ReportListUiState(isLoading = true)
         )
 
-    val reportList = reports.observeAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    fun toggleResolved(item: ReportWithNames) = launchSafe {
-        val resolved = !item.report.resolved
-        reports.setResolved(item.report, resolved, auth.requireUser())
-        send(UiEvent.ShowMessage(if (resolved) "Reporte marcado como resuelto" else "Reporte reabierto"))
+    fun updateStatus(item: ReportWithNames, status: ReportStatus, comment: String? = null) = launchSafe {
+        reports.updateStatus(item.report.id, status, comment, auth.requireUser())
+        send(UiEvent.ShowMessage("Reporte actualizado a ${status.label}"))
     }
 }

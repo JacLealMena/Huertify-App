@@ -20,8 +20,8 @@ class SectorDetailViewModel(
 ) : BaseViewModel() {
     val sectorId: Long = checkNotNull(savedState.get<Long>(Routes.ARG_SECTOR_ID))
 
-    val state: StateFlow<SectorDetailUiState> = combine(garden.observeSector(sectorId), garden.observeCrops(sectorId)) { sector, crops ->
-        SectorDetailUiState(sector, crops, loaded = true)
+    val state: StateFlow<SectorDetailUiState> = combine(garden.observeSector(sectorId), garden.observeCrops(sectorId)) { sectorInfo, crops ->
+        SectorDetailUiState(sectorInfo, crops, loaded = true)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SectorDetailUiState())
 
     fun deleteSector() {

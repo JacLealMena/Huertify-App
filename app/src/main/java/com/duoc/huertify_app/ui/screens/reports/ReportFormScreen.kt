@@ -2,17 +2,16 @@ package com.duoc.huertify_app.ui.screens.reports
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Title
+import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.Yard
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -24,8 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.duoc.huertify_app.data.local.Crop
 import com.duoc.huertify_app.data.local.Sector
-import com.duoc.huertify_app.domain.model.Severity
+import com.duoc.huertify_app.domain.model.ProblemType
 import com.duoc.huertify_app.ui.common.CollectEvents
 import com.duoc.huertify_app.ui.common.DropdownField
 import com.duoc.huertify_app.ui.common.HuertifyTopBar
@@ -41,6 +41,7 @@ fun ReportFormScreen(onBack: () -> Unit) {
     val snackbar = remember { SnackbarHostState() }
     CollectEvents(vm.events, snackbar, onBack)
     val noSector: Sector? = null
+    val noCrop: Crop? = null
 
     Scaffold(
         topBar = { HuertifyTopBar("Reportar problema", onBack) },
@@ -54,7 +55,15 @@ fun ReportFormScreen(onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            ValidatedTextField(state.title, vm::onTitle, "Título del problema *", state.titleError, leadingIcon = Icons.Filled.Title)
+            DropdownField(
+                label = "Tipo de problema *",
+                options = ProblemType.entries,
+                selected = state.type,
+                optionLabel = { it.label },
+                onSelected = vm::onType,
+                error = state.typeError,
+                leadingIcon = Icons.Filled.Category
+            )
             DropdownField(
                 label = "Sector afectado",
                 options = listOf(noSector) + state.sectors,
@@ -64,13 +73,17 @@ fun ReportFormScreen(onBack: () -> Unit) {
                 error = null,
                 leadingIcon = Icons.Filled.Yard
             )
-            Text("Gravedad *", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Severity.entries.forEach { sev ->
-                    FilterChip(selected = state.severity == sev, onClick = { vm.onSeverity(sev) }, label = { Text(sev.label) })
-                }
+            if (state.sector != null && state.crops.isNotEmpty()) {
+                DropdownField(
+                    label = "Cultivo afectado",
+                    options = listOf(noCrop) + state.crops,
+                    selected = state.crop,
+                    optionLabel = { it?.name ?: "Sin cultivo específico" },
+                    onSelected = vm::onCrop,
+                    error = null,
+                    leadingIcon = Icons.Filled.Grass
+                )
             }
-            state.severityError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             ValidatedTextField(
                 state.description, vm::onDescription, "Descripción *", state.descriptionError,
                 leadingIcon = Icons.Filled.Description, singleLine = false, minLines = 3,

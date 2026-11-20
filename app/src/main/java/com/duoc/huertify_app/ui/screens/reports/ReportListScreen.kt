@@ -38,6 +38,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.duoc.huertify_app.domain.model.ReportStatus
 import com.duoc.huertify_app.ui.common.CollectEvents
 import com.duoc.huertify_app.ui.common.EmptyState
 import com.duoc.huertify_app.ui.common.HuertifyTopBar
@@ -98,11 +99,11 @@ fun ReportListScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
                         Column(Modifier.padding(16.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    r.title,
+                                    r.type.label,
                                     style = MaterialTheme.typography.titleMedium,
                                     modifier = Modifier.weight(1f)
                                 )
-                                StatusChip(r.severity.label, r.severity.color())
+                                StatusChip(r.status.label, r.status.color())
                             }
                             Text(
                                 "${item.sectorName ?: "General"} · ${item.reporterName} · ${r.createdAt.formatTimestamp()}",
@@ -121,12 +122,16 @@ fun ReportListScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    if (r.resolved) "Resuelto" else "Pendiente",
+                                    if (r.status == ReportStatus.ATENDIDO || r.status == ReportStatus.CERRADO) "Atendido" else "Pendiente",
                                     modifier = Modifier.weight(1f)
                                 )
                                 Switch(
-                                    checked = r.resolved,
-                                    onCheckedChange = { vm.toggleResolved(item) })
+                                    checked = r.status == ReportStatus.ATENDIDO || r.status == ReportStatus.CERRADO,
+                                    onCheckedChange = { checked ->
+                                        val newStatus = if (checked) ReportStatus.ATENDIDO else ReportStatus.INFORMADO
+                                        vm.updateStatus(item, newStatus)
+                                    }
+                                )
                             }
                         }
                     }

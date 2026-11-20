@@ -24,11 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Comment
-<<<<<<< HEAD:app/src/main/java/com/duoc/huertify_app/ui/screens/tasks/TaskDetailScreen.kt
-=======
 import androidx.compose.material.icons.automirrored.filled.FactCheck
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
->>>>>>> 80f66d5 (backend con xampp y phpmyadmin):app/src/main/java/com/duoc/huertify_app/ui/screens/tasks/PantallaDetalleTarea.kt
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Block
@@ -83,6 +79,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.duoc.huertify_app.data.local.TaskWithNames
 import com.duoc.huertify_app.domain.TaskStateMachine
 import com.duoc.huertify_app.domain.model.TaskStatus
 import com.duoc.huertify_app.ui.common.CollectEvents
@@ -102,150 +99,8 @@ import com.duoc.huertify_app.ui.common.formatEpochDay
 import com.duoc.huertify_app.ui.common.formatTimestamp
 import com.duoc.huertify_app.ui.common.huertifyViewModel
 import com.duoc.huertify_app.ui.navigation.Routes
-<<<<<<< HEAD:app/src/main/java/com/duoc/huertify_app/ui/screens/tasks/TaskDetailScreen.kt
-=======
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
-import java.time.LocalDate
 
 private val VALID_GREEN = Color(0xFF2E7D32)
-
-/** Datos editables por el usuario en el detalle (entrega, validación o rechazo). */
-data class TaskActionForm(
-    val comment: String = "",
-    val evidenceUri: String? = null,
-    val commentError: String? = null,
-    val showSubmitConfirm: Boolean = false,
-    val showValidateDialog: Boolean = false,
-    val validateComment: String = "",
-    val showRejectDialog: Boolean = false,
-    val rejectReason: String = "",
-    val rejectError: String? = null,
-    val rescheduleDate: LocalDate? = null,
-    val rescheduleError: String? = null,
-    val working: Boolean = false
-)
-
-data class TaskDetailState(
-    val item: TaskWithNames? = null,
-    val user: User? = null,
-    val form: TaskActionForm = TaskActionForm(),
-    val loaded: Boolean = false
-) {
-    val isAdmin get() = user?.role == Role.ADMIN
-    val canView get() = item != null && user != null && (isAdmin || item.task.assigneeId == user.id)
-}
-
-class TaskDetailViewModel(
-    private val tasks: TaskRepository,
-    private val auth: AuthRepository,
-    private val images: ImageStorage,
-    private val savedState: SavedStateHandle
-) : BaseViewModel() {
-    private val taskId: Long = checkNotNull(savedState.get<Long>(Routes.ARG_TASK_ID))
-    private val form = MutableStateFlow(TaskActionForm())
-
-    val state = combine(tasks.observeTask(taskId), auth.currentUser, form) { item, user, f ->
-        TaskDetailState(item, user, f, loaded = true)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TaskDetailState())
-
-    fun onComment(v: String) = form.update { it.copy(comment = v, commentError = null) }
-
-    fun prepareCameraUri(): Uri = images.newCameraUri().also { savedState[KEY_PENDING_PHOTO] = it.toString() }
-
-    fun onCameraResult(success: Boolean) {
-        val pending = savedState.get<String>(KEY_PENDING_PHOTO)
-        if (success && pending != null) {
-            form.update { it.copy(evidenceUri = pending) }
-        } else {
-            send(UiEvent.ShowMessage("No se tomó la fotografía"))
-        }
-    }
-
-    fun onGalleryPicked(uri: Uri) = launchSafe {
-        val stored = images.importFromGallery(uri)
-        form.update { it.copy(evidenceUri = stored.toString()) }
-    }
-
-    fun removePhoto() = form.update { it.copy(evidenceUri = null) }
-
-    fun start() = runAction("Tarea iniciada. ¡Manos a la obra!") { tasks.startTask(taskId, it) }
-
-    /** Valida el comentario (opcional) y pide confirmación antes de marcar la tarea como realizada. */
-    fun requestSubmit() {
-        val error = Validators.optionalText(form.value.comment, "El comentario", 300)
-        if (error != null) {
-            form.update { it.copy(commentError = error) }
-            return
-        }
-        form.update { it.copy(showSubmitConfirm = true) }
-    }
-
-    fun dismissSubmit() = form.update { it.copy(showSubmitConfirm = false) }
-
-    fun confirmSubmit() {
-        val f = form.value
-        form.update { it.copy(showSubmitConfirm = false) }
-        runAction("Tarea marcada como realizada. Queda pendiente de validación") {
-            tasks.submitTask(taskId, f.comment.trim(), f.evidenceUri, it)
-            form.value = TaskActionForm()
-        }
-    }
-
-    fun openValidateDialog() = form.update { it.copy(showValidateDialog = true, validateComment = "") }
-    fun closeValidateDialog() = form.update { it.copy(showValidateDialog = false) }
-    fun onValidateComment(v: String) = form.update { it.copy(validateComment = v) }
-
-    fun validate() {
-        val comment = form.value.validateComment.trim()
-        form.update { it.copy(showValidateDialog = false) }
-        runAction("Tarea validada ✔") { tasks.validateTask(taskId, it, comment) }
-    }
-
-    fun openRejectDialog() = form.update {
-        it.copy(showRejectDialog = true, rejectReason = "", rejectError = null, rescheduleDate = null, rescheduleError = null)
-    }
-    fun closeRejectDialog() = form.update { it.copy(showRejectDialog = false) }
-    fun onRejectReason(v: String) = form.update { it.copy(rejectReason = v, rejectError = null) }
-    fun onReschedule(v: LocalDate?) = form.update { it.copy(rescheduleDate = v, rescheduleError = null) }
-
-    fun reject() {
-        val f = form.value
-        val error = Validators.rejectionReason(f.rejectReason)
-        val dateError = f.rescheduleDate?.let { Validators.scheduledDate(it, LocalDate.now(), allowPast = false) }
-        if (error != null || dateError != null) {
-            form.update { it.copy(rejectError = error, rescheduleError = dateError) }
-            return
-        }
-        form.update { it.copy(showRejectDialog = false) }
-        val msg = if (f.rescheduleDate != null) "Tarea rechazada y reprogramada" else "Tarea rechazada. Se notificó al estudiante"
-        runAction(msg) { tasks.rejectTask(taskId, f.rejectReason.trim(), it, f.rescheduleDate) }
-    }
-
-    fun delete() {
-        val task = state.value.item?.task ?: return
-        launchSafe {
-            tasks.deleteTask(task, auth.requireUser())
-            send(UiEvent.SuccessAndBack("Tarea eliminada"))
-        }
-    }
-
-    private fun runAction(success: String, block: suspend (User) -> Unit) {
-        form.update { it.copy(working = true) }
-        launchSafe(onFinally = { form.update { it.copy(working = false) } }) {
-            block(auth.requireUser())
-            send(UiEvent.ShowMessage(success))
-        }
-    }
-
-    private companion object {
-        const val KEY_PENDING_PHOTO = "pending_photo"
-    }
-}
->>>>>>> 80f66d5 (backend con xampp y phpmyadmin):app/src/main/java/com/duoc/huertify_app/ui/screens/tasks/PantallaDetalleTarea.kt
 
 @Composable
 fun TaskDetailScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
@@ -289,13 +144,11 @@ fun TaskDetailScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
         ) {
             TaskHeader(item)
 
-            // 1. Proceso: en qué etapa está la tarea y qué viene después.
             DetailSection("Proceso", Icons.Filled.AccountTree, subtitle = "Etapa actual de la tarea") {
                 StatusStepper(task.status)
                 InfoBanner(Icons.Filled.Lightbulb, nextStepHint(task.status, state.isAdmin), MaterialTheme.colorScheme.primary)
             }
 
-            // 2. Detalle: datos de la tarea.
             DetailSection("Detalle", Icons.Filled.Info) {
                 InfoLine(
                     Icons.Filled.Event, "Fecha programada", task.scheduledDate.formatEpochDay(),
@@ -308,54 +161,15 @@ fun TaskDetailScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
                 InfoLine(Icons.Filled.School, "Creada por", "${item.creatorName ?: "Docente"} · ${task.createdAt.formatTimestamp()}")
             }
 
-            // 3. Descripción e instrucciones, separadas.
             DetailSection("Descripción", Icons.Filled.Description) {
                 Text(task.description, style = MaterialTheme.typography.bodyLarge)
             }
             if (task.instructions.isNotBlank()) {
-<<<<<<< HEAD:app/src/main/java/com/duoc/huertify_app/ui/screens/tasks/TaskDetailScreen.kt
-                SectionTitle("Instrucciones")
-                Text(task.instructions)
-            }
-
-            if (task.status == TaskStatus.RECHAZADA && task.rejectionReason != null) {
-                Banner(Icons.Filled.Close, "Motivo del rechazo: ${task.rejectionReason}", MaterialTheme.colorScheme.error)
-            }
-
-            if (task.studentComment != null || task.evidenceUri != null) {
-                SectionTitle("Entrega del estudiante")
-                task.studentComment?.let { Text("“$it”") }
-                task.evidenceUri?.let {uri ->
-                    var visible by remember(uri) { mutableStateOf(false) }
-                    LaunchedEffect(uri) { visible = true }
-
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(
-                            animationSpec = tween(durationMillis = 3000)
-                        ) + slideInVertically(
-                            animationSpec = tween(durationMillis = 3000),
-                            initialOffsetY = { fullHeight -> fullHeight / 4 }
-                        )
-                    ) {
-                        AsyncImage(
-                            model = uri,
-                            contentDescription = "Evidencia entregada",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                        )
-                    }
-=======
-                DetailSection("Instrucciones", Icons.AutoMirrored.Filled.FormatListBulleted, subtitle = "Sigue estos pasos en orden") {
-                    instructionSteps(task.instructions).forEachIndexed { index, step -> InstructionStep(index + 1, step) }
->>>>>>> 80f66d5 (backend con xampp y phpmyadmin):app/src/main/java/com/duoc/huertify_app/ui/screens/tasks/PantallaDetalleTarea.kt
+                DetailSection("Instrucciones", Icons.Filled.Info, subtitle = "Instrucciones de la tarea") {
+                    Text(task.instructions, style = MaterialTheme.typography.bodyLarge)
                 }
             }
 
-            // 4. Entrega y revisión (cuando existen).
             if (task.completedAt != null || task.studentComment != null || task.evidenceUri != null) {
                 DetailSection("Entrega del estudiante", Icons.AutoMirrored.Filled.Send) {
                     task.completedAt?.let { InfoLine(Icons.Filled.EventAvailable, "Marcada como realizada", it.formatTimestamp()) }
@@ -370,7 +184,6 @@ fun TaskDetailScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) {
             }
             ReviewSection(item)
 
-            // 5. Acciones disponibles según el rol y el estado.
             DetailSection(if (state.isAdmin) "Revisión" else "¿Qué debes hacer?", Icons.Filled.TouchApp) {
                 if (state.isAdmin) {
                     AdminActions(task.status, state.form.working, vm::openValidateDialog, vm::openRejectDialog)
@@ -592,7 +405,6 @@ private fun TaskDialogs(state: TaskDetailState, vm: TaskDetailViewModel) {
     }
 }
 
-/** Línea de proceso con pasos numerados: Pendiente → En desarrollo → Pendiente de validación → Validada/Rechazada. */
 @Composable
 private fun StatusStepper(current: TaskStatus) {
     val final = if (current == TaskStatus.RECHAZADA) TaskStatus.RECHAZADA else TaskStatus.VALIDADA
@@ -605,7 +417,6 @@ private fun StatusStepper(current: TaskStatus) {
             val color = if (done || active) step.color() else MaterialTheme.colorScheme.outlineVariant
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Conector a la izquierda (no se dibuja en el primer paso).
                     Spacer(
                         Modifier.weight(1f).height(3.dp)
                             .background(if (index == 0) Color.Transparent else if (index <= reached) steps[index - 1].color() else MaterialTheme.colorScheme.outlineVariant)
@@ -659,25 +470,4 @@ private fun nextStepHint(status: TaskStatus, isAdmin: Boolean): String = when (s
     TaskStatus.VALIDADA -> "Proceso terminado: el trabajo fue validado."
     TaskStatus.RECHAZADA ->
         if (isAdmin) "El estudiante debe rehacer la tarea y volver a entregarla." else "Siguiente paso: lee el motivo, corrige y vuelve a entregar."
-}
-
-/** Divide las instrucciones en pasos: una línea por paso o, si es un solo párrafo, una oración por paso. */
-internal fun instructionSteps(text: String): List<String> {
-    val lines = text.lines().map { it.trim().trimStart('-', '•', '*').trim() }.filter { it.isNotEmpty() }
-    if (lines.size > 1) return lines
-    return text.split(Regex("(?<=\\.)\\s+")).map { it.trim() }.filter { it.isNotEmpty() }
-}
-
-@Composable
-private fun InstructionStep(number: Int, text: String) {
-    Row(verticalAlignment = Alignment.Top) {
-        Box(
-            Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("$number", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
-        }
-        Spacer(Modifier.width(12.dp))
-        Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 2.dp))
-    }
 }

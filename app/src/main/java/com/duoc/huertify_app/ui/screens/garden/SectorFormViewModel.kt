@@ -27,11 +27,12 @@ class SectorFormViewModel(
         val id = savedState.get<Long>(Routes.ARG_SECTOR_ID) ?: 0L
         if (id > 0) viewModelScope.launch {
             garden.findSector(id)?.let { s ->
-                _state.value = SectorFormUiState(s.id, s.name, s.location, s.areaM2.toString().replace('.', ','), s.description)
+                _state.value = SectorFormUiState(s.id, s.code, s.name, s.location, s.areaM2.toString().replace('.', ','), s.description)
             }
         }
     }
 
+    fun onCode(v: String) = _state.update { it.copy(code = v, codeError = null) }
     fun onName(v: String) = _state.update { it.copy(name = v, nameError = null) }
     fun onLocation(v: String) = _state.update { it.copy(location = v, locationError = null) }
     fun onArea(v: String) = _state.update { it.copy(area = v, areaError = null) }
@@ -39,7 +40,9 @@ class SectorFormViewModel(
 
     fun save() {
         val s = _state.value
+        val autoCode = s.code.ifBlank { "S-${System.currentTimeMillis() % 10000}" }
         val validated = s.copy(
+            code = autoCode,
             nameError = Validators.requiredText(s.name, "El nombre", min = 3, max = 40),
             locationError = Validators.requiredText(s.location, "La ubicación", min = 3, max = 80),
             areaError = Validators.positiveDecimal(s.area, "La superficie"),
@@ -60,6 +63,7 @@ class SectorFormViewModel(
             garden.saveSector(
                 Sector(
                     id = s.id,
+                    code = autoCode.trim(),
                     name = s.name.trim(),
                     location = s.location.trim(),
                     areaM2 = s.area.trim().replace(',', '.').toDouble(),

@@ -3,6 +3,7 @@ package com.duoc.huertify_app.ui.screens.home
 import androidx.lifecycle.viewModelScope
 import com.duoc.huertify_app.data.repository.AuthRepository
 import com.duoc.huertify_app.data.repository.GardenRepository
+import com.duoc.huertify_app.data.repository.MaintenanceRepository
 import com.duoc.huertify_app.data.repository.ReportRepository
 import com.duoc.huertify_app.data.repository.TaskRepository
 import com.duoc.huertify_app.data.repository.WeatherRepository
@@ -27,6 +28,7 @@ class HomeViewModel(
     garden: GardenRepository,
     tasks: TaskRepository,
     reports: ReportRepository,
+    maintenances: MaintenanceRepository,
     private val weatherRepository: WeatherRepository
 ) : BaseViewModel() {
 
@@ -49,21 +51,17 @@ class HomeViewModel(
 
     val state: StateFlow<HomeUiState> = auth.currentUser.filterNotNull().flatMapLatest { user ->
         val taskFlow = if (user.role == Role.ADMIN) tasks.observeAll() else tasks.observeForUser(user.id)
-        combine(
-            taskFlow,
-            garden.observeSectors(),
-            garden.observeCropCount(),
-            reports.observeAll()
-        ) { taskList, sectors, crops, reportList ->
+        val counts = combine(garden.observeSectors(), garden.observeAllCrops(), maintenances.observeAll()) { s, c, m -> Triple(s, c, m) }
+        combine(taskFlow, tasks.observeAll(), counts, reports.observeAll()) { taskList, allTasks, (sectors, crops, maint), reportList ->
             HomeUiState(
                 user = user,
                 sectorCount = sectors.size,
-                cropCount = crops,
+                cropCount = crops.size,
                 tasks = taskList,
                 pendingValidation = taskList.count { it.task.status == TaskStatus.PENDIENTE_VALIDACION },
                 overdue = taskList.count { it.task.isOverdue() },
-                openReports = reportList.count { !it.report.resolved },
-                alertCount = AlertBuilder.build(user.role, taskList, reportList).size
+                openReports = reportList.count { it.report.status.isOpen },
+                alertCount = AlertBuilder.build(user.role, taskList, reportList, crops, allTasks.map { it.task }, maint).size
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())

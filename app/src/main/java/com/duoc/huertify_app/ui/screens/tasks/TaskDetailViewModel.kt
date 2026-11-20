@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import java.time.LocalDate
 
 class TaskDetailViewModel(
     private val tasks: TaskRepository,
@@ -38,7 +39,7 @@ class TaskDetailViewModel(
     fun onCameraResult(success: Boolean) {
         val pending = savedState.get<String>(KEY_PENDING_PHOTO)
         if (success && pending != null) {
-            form.update { it.copy(evidenceUri = pending, evidenceError = null) }
+            form.update { it.copy(evidenceUri = pending) }
         } else {
             send(UiEvent.ShowMessage("No se tomó la fotografía"))
         }
@@ -46,41 +47,61 @@ class TaskDetailViewModel(
 
     fun onGalleryPicked(uri: Uri) = launchSafe {
         val stored = images.importFromGallery(uri)
-        form.update { it.copy(evidenceUri = stored.toString(), evidenceError = null) }
+        form.update { it.copy(evidenceUri = stored.toString()) }
     }
+
+    fun removePhoto() = form.update { it.copy(evidenceUri = null) }
 
     fun start() = runAction("Tarea iniciada. ¡Manos a la obra!") { tasks.startTask(taskId, it) }
 
-    fun submit() {
-        val f = form.value
-        val commentError = Validators.requiredText(f.comment, "El comentario", min = 10, max = 300)
-        val evidenceError = if (f.evidenceUri == null) "Adjunta una fotografía como evidencia" else null
-        form.update { it.copy(commentError = commentError, evidenceError = evidenceError) }
-        if (commentError != null || evidenceError != null) {
-            showError("Completa el comentario y la evidencia para entregar")
+    fun requestSubmit() {
+        val error = Validators.optionalText(form.value.comment, "El comentario", 300)
+        if (error != null) {
+            form.update { it.copy(commentError = error) }
             return
         }
-        runAction("Tarea entregada para validación") {
-            tasks.submitTask(taskId, f.comment.trim(), f.evidenceUri!!, it)
+        form.update { it.copy(showSubmitConfirm = true) }
+    }
+
+    fun dismissSubmit() = form.update { it.copy(showSubmitConfirm = false) }
+
+    fun confirmSubmit() {
+        val f = form.value
+        form.update { it.copy(showSubmitConfirm = false) }
+        runAction("Tarea marcada como realizada. Queda pendiente de validación") {
+            tasks.submitTask(taskId, f.comment.trim(), f.evidenceUri, it)
             form.value = TaskActionForm()
         }
     }
 
-    fun validate() = runAction("Tarea validada ✔") { tasks.validateTask(taskId, it) }
+    fun openValidateDialog() = form.update { it.copy(showValidateDialog = true, validateComment = "") }
+    fun closeValidateDialog() = form.update { it.copy(showValidateDialog = false) }
+    fun onValidateComment(v: String) = form.update { it.copy(validateComment = v) }
 
-    fun openRejectDialog() = form.update { it.copy(showRejectDialog = true, rejectReason = "", rejectError = null) }
+    fun validate() {
+        val comment = form.value.validateComment.trim()
+        form.update { it.copy(showValidateDialog = false) }
+        runAction("Tarea validada ✔") { tasks.validateTask(taskId, it, comment) }
+    }
+
+    fun openRejectDialog() = form.update {
+        it.copy(showRejectDialog = true, rejectReason = "", rejectError = null, rescheduleDate = null, rescheduleError = null)
+    }
     fun closeRejectDialog() = form.update { it.copy(showRejectDialog = false) }
     fun onRejectReason(v: String) = form.update { it.copy(rejectReason = v, rejectError = null) }
+    fun onReschedule(v: LocalDate?) = form.update { it.copy(rescheduleDate = v, rescheduleError = null) }
 
     fun reject() {
-        val reason = form.value.rejectReason
-        val error = Validators.rejectionReason(reason)
-        if (error != null) {
-            form.update { it.copy(rejectError = error) }
+        val f = form.value
+        val error = Validators.rejectionReason(f.rejectReason)
+        val dateError = f.rescheduleDate?.let { Validators.scheduledDate(it, LocalDate.now(), allowPast = false) }
+        if (error != null || dateError != null) {
+            form.update { it.copy(rejectError = error, rescheduleError = dateError) }
             return
         }
         form.update { it.copy(showRejectDialog = false) }
-        runAction("Tarea rechazada. Se notificó al estudiante") { tasks.rejectTask(taskId, reason.trim(), it) }
+        val msg = if (f.rescheduleDate != null) "Tarea rechazada y reprogramada" else "Tarea rechazada. Se notificó al estudiante"
+        runAction(msg) { tasks.rejectTask(taskId, f.rejectReason.trim(), it, f.rescheduleDate) }
     }
 
     fun delete() {
