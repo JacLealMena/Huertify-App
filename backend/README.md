@@ -1,27 +1,31 @@
 # Huertify backend
 
-Minimal Spring Boot REST API for the Android app. Requires Java 21, Maven, and
-XAMPP's MySQL/MariaDB service.
+Minimal Spring Boot REST API for the Android app. Requires Java 21; the included
+Maven Wrapper downloads and runs Maven, so Maven does not need to be installed.
 
 ## Database setup
 
-1. Start **MySQL** (and Apache if you use phpMyAdmin) in the XAMPP Control Panel.
-2. Open phpMyAdmin at `http://localhost/phpmyadmin`.
-3. Create a database named `huertify` with collation `utf8mb4_unicode_ci`.
-4. The backend creates or updates the tables when it starts.
+By default, the backend uses a local H2 database at `backend/data/huertify` and
+creates or updates its tables when it starts. No separate database service is
+needed, and data persists between runs.
 
-By default, the backend connects to `localhost:3306` as `root` with an empty
-password, which matches a typical XAMPP installation. If your XAMPP credentials
-or port differ, set `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` before starting it.
-For example, `DB_URL` can be `jdbc:mysql://localhost:3307/huertify`.
+To use XAMPP MySQL/MariaDB instead, start MySQL, create a database named
+`huertify`, then set the connection variables before starting the backend:
 
 ```powershell
+$env:DB_URL = "jdbc:mysql://localhost:3306/huertify?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+$env:DB_USERNAME = "root"
+$env:DB_PASSWORD = ""
 cd backend
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
-The API listens on `http://localhost:8080`. Run tests with `mvn test`; tests use
-an in-memory H2 database and do not require XAMPP.
+For a password-protected MySQL user, set `DB_PASSWORD` to its password.
+
+On macOS/Linux, use `./mvnw spring-boot:run` instead of `.\mvnw.cmd spring-boot:run`.
+The first run needs internet to download Maven and dependencies. The API listens
+on `http://localhost:8080`. Run tests with `.\mvnw.cmd test` on Windows or
+`./mvnw test` on macOS/Linux; tests use an in-memory H2 database.
 
 On its first run, the backend seeds four demo accounts, sectors, crops, and tasks:
 
