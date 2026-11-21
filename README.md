@@ -4,6 +4,8 @@ App Android para organizar el huerto escolar entre docentes y estudiantes: qué 
 
 Este README es para el equipo: explica **qué está hecho**, **cómo correrlo** y **cómo está organizado el código**, para que cualquiera pueda meterse a trabajar sin perderse.
 
+Para instrucciones del backend Java, la base local (o MySQL opcional) y la app Android, consulta la [guía para iniciar Huertify](./GUIA_INICIO.md).
+
 ---
 
 ## 1. Cómo levantar el proyecto
@@ -13,10 +15,10 @@ Este README es para el equipo: explica **qué está hecho**, **cómo correrlo** 
 | Qué | Versión |
 |---|---|
 | Android Studio | reciente (compatible con **AGP 9.0**) |
-| JDK | el que trae Android Studio (*JetBrains Runtime*); no hay que instalar otro |
+| JDK | **Java 21** para el backend; Android Studio incluye un runtime para Gradle |
 | Android SDK | **API 37** (`compileSdk`/`targetSdk`), se instala desde el *SDK Manager* |
 | Dispositivo | emulador o teléfono con **Android 7.0 (API 24)** o superior |
-| Internet | para la primera sincronización de Gradle y para el clima |
+| Internet | para descargar Gradle/Maven y dependencias la primera vez, y para el clima |
 
 ### Paso a paso (Android Studio)
 
@@ -33,7 +35,7 @@ Este README es para el equipo: explica **qué está hecho**, **cómo correrlo** 
    - **Teléfono físico**: activar *Opciones de desarrollador* (tocar 7 veces "Número de compilación" en *Ajustes ▸ Acerca del teléfono*), luego activar **Depuración USB** y conectarlo por cable. Aceptar el aviso de "¿Permitir depuración USB?" en el teléfono.
 5. Verificar que arriba esté seleccionada la configuración **`app`** y presionar ▶️ **Run** (`Shift + F10`).
 
-La primera vez que se abre, la app crea la base de datos y carga **datos de ejemplo** (3 sectores, 3 cultivos y 4 tareas), así que no parte vacía.
+Al iniciar, la app sincroniza desde el backend los usuarios y los datos de ejemplo del huerto (4 sectores, 4 cultivos y 7 tareas). El backend debe estar encendido.
 
 ### Por consola (sin abrir Android Studio)
 
@@ -181,18 +183,23 @@ Si no hay internet, la tarjeta muestra el error y un botón para reintentar. El 
 
 ### Backend Java (login, sectores, cultivos y tareas)
 
-El backend está en la carpeta `backend/` y usa **Spring Boot**, **Java 21**, una API REST y **MySQL/MariaDB de XAMPP**. Para probarlo:
+El backend está en la carpeta `backend/` y usa **Spring Boot**, **Java 21**, una API REST y una base **H2 local** por defecto (no requiere XAMPP ni instalar Maven; el Maven Wrapper descarga la versión necesaria). Para probarlo desde la raíz:
 
-1. En XAMPP, inicia **MySQL** y abre phpMyAdmin (`http://localhost/phpmyadmin`).
-2. Crea una base llamada `huertify` con collation `utf8mb4_unicode_ci`.
-3. Instala Java 21 y Maven. Desde la raíz del proyecto, abre una terminal y ejecuta:
-   ```powershell
-   cd backend
-   mvn spring-boot:run
-   ```
-4. Deja esa terminal abierta y ejecuta la app en un **emulador Android**. La app se conecta a `http://10.0.2.2:8080/` (la dirección del emulador para acceder al computador).
+```powershell
+# Windows
+cd backend
+.\mvnw.cmd spring-boot:run
+```
 
-La primera ejecución crea cuentas y datos de prueba; las credenciales están en `backend/README.md`. Si XAMPP usa otras credenciales o puerto, configura `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` antes de iniciar el backend. Si usas un teléfono físico, cambia `HUERTIFY_BASE_URL` en `app/build.gradle.kts` por la IP local del computador. Si no se puede conectar al backend, la app muestra un mensaje y permite reintentar cuando el servidor esté encendido.
+```bash
+# macOS / Linux
+cd backend
+./mvnw spring-boot:run
+```
+
+La primera ejecución necesita internet para descargar Maven y dependencias. Deja esa terminal abierta y ejecuta la app en un **emulador Android**. La app se conecta a `http://10.0.2.2:8080/` (la dirección del emulador para acceder al computador).
+
+La primera ejecución crea cuentas y datos de prueba; los datos quedan guardados en `backend/data/huertify` y las credenciales están en `backend/README.md`. Para usar MySQL de XAMPP, crea la base `huertify` y configura `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` antes de iniciar el backend. Si usas un teléfono físico, cambia `HUERTIFY_BASE_URL` en `app/build.gradle.kts` por la IP local del computador. Si no se puede conectar al backend, la app muestra un mensaje y permite reintentar cuando el servidor esté encendido.
 
 > Este backend es un prototipo académico para desarrollo local: sus endpoints no tienen tokens de sesión ni autorización de producción.
 
