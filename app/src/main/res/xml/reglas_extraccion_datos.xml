@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+   Reglas de extracción de datos (plantilla). Se pueden descomentar y ajustar si se necesita.
+   Más información: https://developer.android.com/about/versions/12/backup-restore#xml-changes
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Usar <include> y <exclude> para controlar qué se respalda.
+        <include .../>
+        <exclude .../>
+        -->
+    </cloud-backup>
+    <!--
+    <device-transfer>
+        <include .../>
+        <exclude .../>
+    </device-transfer>
+    -->
+</data-extraction-rules>
