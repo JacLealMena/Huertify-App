@@ -143,4 +143,57 @@ class NewRulesTest {
         assertTrue(alerts.any { it.title == "Próxima cosecha" })
         assertTrue(alerts.all { it.category == AlertCategory.RECORDATORIO })
     }
+
+    @Test
+    fun passwordRules() {
+        assertNotNull(Validators.password(""))
+        assertNotNull(Validators.password("   "))
+        assertNotNull(Validators.password("12345"))
+        assertNull(Validators.password("123456"))
+    }
+
+    @Test
+    fun requiredTextRules() {
+        assertNotNull(Validators.requiredText("", "El nombre"))
+        assertNotNull(Validators.requiredText("ab", "El nombre", min = 3))
+        assertNotNull(Validators.requiredText("abcdef", "El nombre", max = 5))
+        assertNull(Validators.requiredText("Lechuga", "El nombre", min = 3, max = 20))
+    }
+
+    @Test
+    fun optionalTextRules() {
+        assertNull(Validators.optionalText("", "Notas", max = 10))
+        assertNull(Validators.optionalText("Sin plagas", "Notas", max = 10))
+        assertNotNull(Validators.optionalText("Texto demasiado largo", "Notas", max = 10))
+    }
+
+    @Test
+    fun requiredGenericObject() {
+        assertEquals("Selecciona un sector", Validators.required(null, "Selecciona un sector"))
+        assertNull(Validators.required(10, "Selecciona un sector"))
+    }
+
+    @Test
+    fun plantingDateRules() {
+        assertNotNull(Validators.plantingDate(null, today))
+        assertNotNull(Validators.plantingDate(today.plusYears(1).plusDays(1), today))
+        assertNull(Validators.plantingDate(today.plusYears(1), today))
+        assertNull(Validators.plantingDate(today, today))
+    }
+
+    @Test
+    fun edgeCasesForExistingValidators() {
+        // positiveDecimal: vacío, negativo y mayor a 100_000
+        assertNotNull(Validators.positiveDecimal("", "Área"))
+        assertNotNull(Validators.positiveDecimal("-5", "Área"))
+        assertNotNull(Validators.positiveDecimal("100001", "Área"))
+        assertNull(Validators.positiveDecimal("100000", "Área"))
+
+        // wateringFrequency: mayor a 60 y límite 60
+        assertNotNull(Validators.wateringFrequency("61"))
+        assertNull(Validators.wateringFrequency("60"))
+
+        // rejectionReason: mayor a 300 caracteres
+        assertNotNull(Validators.rejectionReason("a".repeat(301)))
+    }
 }

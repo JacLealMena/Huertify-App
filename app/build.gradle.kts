@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kover)
 }
 
 android {
@@ -20,7 +21,7 @@ android {
         versionName = "1.0"
 
         buildConfigField("String", "WEATHER_BASE_URL", "\"https://api.open-meteo.com/\"")
-        buildConfigField("String", "HUERTIFY_BASE_URL", "\"http://10.0.2.2:8080/\"")
+        buildConfigField("String", "HUERTIFY_BASE_URL", "\"http://172.23.96.1:8080/\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -90,4 +91,36 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp.logging.interceptor)
+}
+
+kover {
+    reports {
+        filters {
+            includes {
+                packages(
+                    "com.duoc.huertify_app.domain",
+                    "com.duoc.huertify_app.domain.validation",
+                    "com.duoc.huertify_app.data.repository"
+                )
+            }
+        }
+    }
+}
+
+val app = "Huertify"
+val version = android.defaultConfig.versionName ?: "1.0"
+val build = android.defaultConfig.versionCode ?: 1
+
+tasks.register<Copy>("exportarApkRelease") {
+    dependsOn("assembleRelease")
+    val app = "Huertify"
+    val version = android.defaultConfig.versionName ?: "1.0"
+    val build = android.defaultConfig.versionCode ?: 1
+    val nombreApk = "$app-v$version-build$build.apk"
+
+    from(layout.buildDirectory.dir("outputs/apk/release")) {
+        include("app-release.apk")
+        rename { nombreApk }
+    }
+    into(layout.buildDirectory.dir("apk-exportadas"))
 }
