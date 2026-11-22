@@ -6,6 +6,7 @@
 
     <application
         android:name=".HuertifyApp"
+        android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/reglas_extraccion_datos"
         android:fullBackupContent="@xml/reglas_respaldo"
